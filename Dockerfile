@@ -7,10 +7,12 @@ RUN apt-get update && \
         libjpeg-dev libpng-dev gcc g++ && \
     rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev
 
 COPY . .
 
-ENTRYPOINT ["python", "train.py"]
-CMD ["--config", "config.yaml"]
+ENTRYPOINT ["uv", "run", "python"]
+CMD ["train.py", "--config", "config.yaml"]

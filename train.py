@@ -94,14 +94,13 @@ def main():
     set_seed(cfg["seed"])
     device = get_device()
     k = cfg["evaluation"]["top_k"]
+    num_epochs = cfg["training"]["epochs"]
 
     train_loader, val_loader = create_dataloaders(cfg)
-
     model = build_model(
         cfg["model"]["type"], cfg["model"]["num_classes"],
         pretrained=cfg["model"]["pretrained"],
     ).to(device)
-
     criterion = nn.BCEWithLogitsLoss()
     optimizer = make_optimizer(model.parameters(), cfg)
     scheduler = make_scheduler(optimizer, cfg)
@@ -117,45 +116,43 @@ def main():
             "num_classes": cfg["model"]["num_classes"],
             "learning_rate": cfg["training"]["learning_rate"],
             "batch_size": cfg["training"]["batch_size"],
-            "epochs": cfg["training"]["epochs"],
+            "epochs": num_epochs,
             "optimizer": cfg["training"]["optimizer"],
             "weight_decay": cfg["training"]["weight_decay"],
             "scheduler": cfg["training"]["scheduler"],
             "image_size": cfg["data"]["image_size"],
-            "top_k": k,
-            "seed": cfg["seed"],
+            "top_k": k, "seed": cfg["seed"],
         })
-
-        gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "N/A"
-        mlflow.log_params({"device": str(device), "gpu_name": gpu_name})
+        gpu = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "none"
+        mlflow.log_params({"device": str(device), "gpu_name": gpu})
 
         t_start = time.time()
         best_pk = 0.0
 
-        for epoch in range(1, cfg["training"]["epochs"] + 1):
+        for epoch in range(1, num_epochs + 1):
             t0 = time.time()
             train_loss = train_one_epoch(model, train_loader, criterion, optimizer, device)
             val = evaluate(model, val_loader, criterion, device, k)
-            epoch_time = time.time() - t0
+            dt = time.time() - t0
 
             if scheduler:
                 scheduler.step()
 
+            pk = val[f"precision_at_{k}"]
             mlflow.log_metrics({
                 "train_loss": train_loss,
                 "validation_loss": val["validation_loss"],
-                f"precision@{k}": val[f"precision@{k}"],
-                f"recall@{k}": val[f"recall@{k}"],
-                f"f1@{k}": val[f"f1@{k}"],
-                "time_per_epoch": epoch_time,
+                f"precision_at_{k}": pk,
+                f"recall_at_{k}": val[f"recall_at_{k}"],
+                f"f1_at_{k}": val[f"f1_at_{k}"],
+                "time_per_epoch": dt,
             }, step=epoch)
 
-            pk = val[f"precision@{k}"]
             print(
-                f"[{epoch}/{cfg['training']['epochs']}] "
+                f"[{epoch}/{num_epochs}] "
                 f"train_loss={train_loss:.4f}  val_loss={val['validation_loss']:.4f}  "
-                f"P@{k}={pk:.4f}  R@{k}={val[f'recall@{k}']:.4f}  "
-                f"F1@{k}={val[f'f1@{k}']:.4f}  ({epoch_time:.1f}s)"
+                f"P@{k}={pk:.4f}  R@{k}={val[f'recall_at_{k}']:.4f}  "
+                f"F1@{k}={val[f'f1_at_{k}']:.4f}  ({dt:.1f}s)"
             )
 
             if pk > best_pk:
@@ -165,11 +162,10 @@ def main():
                 torch.save(model.state_dict(), ckpt)
                 mlflow.log_artifact(str(ckpt))
 
-        total_time = time.time() - t_start
-        mlflow.log_metric("total_training_time", total_time)
+        total = time.time() - t_start
+        mlflow.log_metric("total_training_time", total)
         mlflow.log_artifact(args.config)
-
-        print(f"\nDone in {total_time:.1f}s, best P@{k}={best_pk:.4f}")
+        print(f"\ndone in {total:.1f}s, best P@{k}={best_pk:.4f}")
 
 
 if __name__ == "__main__":

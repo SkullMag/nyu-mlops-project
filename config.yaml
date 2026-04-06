@@ -26,7 +26,7 @@ evaluation:
   threshold: 0.5
 
 mlflow:
-  tracking_uri: "http://localhost:5000"
+  tracking_uri: "http://mlflow:5000"
   experiment_name: "immich-auto-tagging"
   run_name: null
 

@@ -25,7 +25,7 @@ def f1_at_k(logits, targets, k):
 
 def compute_all_metrics(logits, targets, k):
     return {
-        f"precision@{k}": precision_at_k(logits, targets, k),
-        f"recall@{k}": recall_at_k(logits, targets, k),
-        f"f1@{k}": f1_at_k(logits, targets, k),
+        f"precision_at_{k}": precision_at_k(logits, targets, k),
+        f"recall_at_{k}": recall_at_k(logits, targets, k),
+        f"f1_at_{k}": f1_at_k(logits, targets, k),
     }
