@@ -58,13 +58,22 @@ def make_scheduler(optimizer, cfg):
 def train_one_epoch(model, loader, criterion, optimizer, device):
     model.train()
     running_loss = 0.0
-    for imgs, targets in loader:
+    num_batches = len(loader)
+    t_epoch = time.time()
+    for i, (imgs, targets) in enumerate(loader, 1):
         imgs, targets = imgs.to(device), targets.to(device)
         optimizer.zero_grad()
         loss = criterion(model(imgs), targets)
         loss.backward()
         optimizer.step()
         running_loss += loss.item() * imgs.size(0)
+
+        if i % 10 == 0 or i == num_batches:
+            elapsed = time.time() - t_epoch
+            it_per_sec = i / elapsed
+            eta = (num_batches - i) / it_per_sec
+            print(f"  batch {i}/{num_batches}  {it_per_sec:.2f} it/s  ETA {eta:.0f}s", flush=True)
+
     return running_loss / len(loader.dataset)
 
 
